@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "author": "Smart Parking",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-v1", "id": "esp32", "top": -2.72, "left": -43.2, "attrs": {} },
+    {
+      "type": "wokwi-hc-sr04",
+      "id": "ultrasonic",
+      "top": -180,
+      "left": -50,
+      "attrs": { "distance": "150" }
+    },
+    { "type": "wokwi-led", "id": "ledGreen", "top": -70, "left": 250, "attrs": { "color": "green" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": 20, "left": 180, "attrs": { "value": "220" } },
+    { "type": "wokwi-led", "id": "ledRed", "top": 100, "left": 250, "attrs": { "color": "red" } },
+    { "type": "wokwi-resistor", "id": "r2", "top": 190, "left": 180, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "esp32:D2", "r1:1", "green", [] ],
+    [ "r1:2", "ledGreen:A", "green", [] ],
+    [ "ledGreen:C", "esp32:GND.1", "black", [] ],
+    [ "esp32:D4", "r2:1", "red", [] ],
+    [ "r2:2", "ledRed:A", "red", [] ],
+    [ "ledRed:C", "esp32:GND.1", "black", [] ],
+    [ "ultrasonic:VCC", "esp32:VIN", "red", [] ],
+    [ "ultrasonic:GND", "esp32:GND.2", "black", [] ],
+    [ "ultrasonic:TRIG", "esp32:D5", "orange", [] ],
+    [ "ultrasonic:ECHO", "esp32:D18", "blue", [] ]
+  ],
+  "dependencies": {}
+}
