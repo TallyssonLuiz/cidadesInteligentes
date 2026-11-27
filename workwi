@@ -1,0 +1,126 @@
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+
+const char* ssid = "Wokwi-GUEST";
+const char* password = "";
+
+// Atualize se reiniciar o cloudflared
+const char* apiURL =
+  "https://modification-inf-accuracy-sphere.trycloudflare.com/api/vagas/1";
+
+const int ledVerde = 2;
+const int ledVermelho = 4;
+const int trigPin = 5;
+const int echoPin = 18;
+
+// -1 = ainda nao sincronizado, 0 = livre, 1 = ocupada
+int estadoAnterior = -1;
+
+void conectarWiFi() {
+  Serial.print("Conectando ao WiFi");
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid, password, 6);
+
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  Serial.println("\nWiFi conectado!");
+  Serial.println(WiFi.localIP());
+}
+
+float medirDistanciaCm() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  unsigned long duracao = pulseIn(echoPin, HIGH, 30000);
+  if (duracao == 0) {
+    return -1.0;
+  }
+  return (duracao * 0.0343) / 2.0;
+}
+
+void atualizarLEDs(bool ocupada) {
+  if (ocupada) {
+    digitalWrite(ledVermelho, HIGH);
+    digitalWrite(ledVerde, LOW);
+  } else {
+    digitalWrite(ledVermelho, LOW);
+    digitalWrite(ledVerde, HIGH);
+  }
+}
+
+void enviarEstadoAPI(bool ocupada) {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi desconectado!");
+    return;
+  }
+
+  WiFiClientSecure client;
+  client.setInsecure();
+
+  HTTPClient http;
+  Serial.println("\nEnviando PUT para FastAPI...");
+
+  if (http.begin(client, apiURL)) {
+    http.setTimeout(15000);
+    http.addHeader("Content-Type", "application/json");
+
+    String body = ocupada ? "{\"ocupada\":true}" : "{\"ocupada\":false}";
+    int codigo = http.PUT(body);
+
+    if (codigo == HTTP_CODE_OK) {
+      Serial.println("API atualizada com sucesso:");
+      Serial.println(http.getString());
+    } else {
+      Serial.print("Erro HTTP: ");
+      Serial.print(codigo);
+      Serial.print(" -> ");
+      Serial.println(http.errorToString(codigo));
+    }
+
+    http.end();
+  } else {
+    Serial.println("Falha ao iniciar requisicao HTTP");
+  }
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  pinMode(ledVerde, OUTPUT);
+  pinMode(ledVermelho, OUTPUT);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+
+  digitalWrite(ledVerde, LOW);
+  digitalWrite(ledVermelho, LOW);
+
+  conectarWiFi();
+}
+
+void loop() {
+  float distancia = medirDistanciaCm();
+
+  if (distancia > 0) {
+    bool ocupadaAtual = (distancia < 50.0); // Carro a menos de 50 cm
+    int estadoAtual = ocupadaAtual ? 1 : 0;
+
+    if (estadoAtual != estadoAnterior) {
+      Serial.print("Distancia: ");
+      Serial.print(distancia);
+      Serial.println(ocupadaAtual ? " cm -> VAGA OCUPADA" : " cm -> VAGA LIVRE");
+
+      atualizarLEDs(ocupadaAtual);
+      enviarEstadoAPI(ocupadaAtual);
+      estadoAnterior = estadoAtual;
+    }
+  }
+
+  delay(500);
+}
